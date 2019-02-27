@@ -4,6 +4,8 @@ import time as tm
 import numpy as np
 import threading as trd
 from scipy.ndimage.interpolation import shift
+#import matplotlib.pyplot as plt
+import os
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
@@ -27,7 +29,8 @@ max31865 = ClassesBraucon.max31865(csPin,misoPin,mosiPin,clkPin)
 # Variables
 CurrSocketState = False # False--> Socket OFF
 TempValBuffer = np.arange(10,dtype=float)
-rootdir = '/home/pi/braucon/'
+#CycCounter = 0
+rootdir = os.path.dirname(os.path.realpath(__file__))+'/'#'/home/pi/braucon/'
 
 # Functions
 def Socket (NewSocketState):#, CurrSocketState):
@@ -88,10 +91,17 @@ def Pt100_Filter_C(n,delay,Ftype):
  
 def CalcDeltaT (PhaseNum):
     
+    global CycCounter
+    
     T_soll = float(phases[PhaseNum][1])
     T_curr = TempValBuffer[0] #--- T_curr = Pt100_Mean_C(2,0.5)
     DeltaT = T_curr-T_soll
     print('T='+str(T_curr) +'GrC\t' +'Delta= ' + str(DeltaT) + 'GrC')
+    
+    #CycCounter = CycCounter+1
+    #plt.scatter(CycCounter,T_curr)
+    #plt.show()
+    #plt.pause(0.00001)
     
     return DeltaT
 
@@ -157,6 +167,9 @@ def Background():
     Pt100_Filter_C(4,0.25,'mean')
 
 def Main():
+    
+   # fig = plt.figure()
+    
     
     for i in range(1,len(phases)):
         print('starting phase ' + str(i))
