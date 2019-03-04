@@ -16,34 +16,36 @@ misoPin = 9
 mosiPin = 10
 clkPin  = 11
 # Max31865 Initialization
-max = ClassesBraucon.max31865(csPin,misoPin,mosiPin,clkPin)
+max31865 = ClassesBraucon.max31865(csPin,misoPin,mosiPin,clkPin)
 # Variables
-file = open("/home/pi/braucon/logfile.csv", "a")
+rootdir = os.path.dirname(os.path.realpath(__file__))+'/'
+filepath = rootdir + 'logfile.csv'
+file = open(filepath, "a")
 
     
-def Pt100_Mean_C(n,delay,delay2):
+def Pt100_Filter_C():
     
+    global TempValBuffer
     
-    MeanBuffer = np.arange(n, dtype=float)
+    FilterBuffer = np.zeros(50, dtype=float)
     
     while True:
-        for i in range (n):
-            T = max.readTemp()
-            MeanBuffer = shift(MeanBuffer,1,cval= T)
-            tm.sleep(delay)
-        mean = np.round(np.mean(MeanBuffer),2)
-        print(str(mean) + ' GrC')
+        for i in range (48):
+            T = max31865.readTemp()
+            FilterBuffer = shift(FilterBuffer,1,cval= T)
+            tm.sleep(0.02)
+        
+        FilterBuffer = np.sort(FilterBuffer, axis=0)
+        IQR_Mean = np.mean(FilterBuffer[12:36])
+
+        print(str(IQR_Mean) + ' GrC')
         now = datetime.now()
-        file.write(str(now)+","+str(mean) + "\n")
+        file.write(str(now)+","+str(IQR_Mean) + "\n")
         file.flush()
         
-        tm.sleep(delay2)
-
-#        os.system('/etc/init.d/networking restart')
-
 
 def Background():
-    Pt100_Mean_C(5,1,600)
+    Pt100_Mean_C()
 
 #Start Thread
 TempThread = trd.Thread(target=Background)

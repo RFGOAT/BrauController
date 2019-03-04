@@ -65,28 +65,23 @@ def ReadPhasesCal():
    
     return phases,gain,offset
     
-def Pt100_Filter_C(n,delay,Ftype):
+def Pt100_Filter_C():
     
     global TempValBuffer
     
-    FilterBuffer = np.arange(n, dtype=float)
+    FilterBuffer = np.zeros(50, dtype=float)
     
     while True:
-        for i in range (n):
+        for i in range (48):
             T = max31865.readTemp()
             FilterBuffer = shift(FilterBuffer,1,cval= T)
-            tm.sleep(delay)
+            tm.sleep(0.02)
         
-        if ( Ftype == 'mean'):
-            mean = np.round(np.mean(FilterBuffer),2)
-            mean = np.round(gain * mean + offset,2) ##calibrated
-            TempValBuffer = shift(TempValBuffer,1,cval=mean)
-        if ( Ftype == 'median'):
-            median = np.median(FilterBuffer)
-            median = np.round(gain * median + offset,2) ## calibrated
-            TempValBuffer = shift(TempValBuffer,1,cval=median)
+        FilterBuffer = np.sort(FilterBuffer, axis=0)
+        IQR_Mean = np.mean(FilterBuffer[12:36])
+        IQR_MeanCal = np.round(gain * IQR_Mean + offset,2) ##calibrated
+        TempValBuffer = shift(TempValBuffer,1,cval=IQR_MeanCal)
         
-        tm.sleep(1) # New value every X seconds
 
  
 def CalcDeltaT (PhaseNum):
@@ -97,12 +92,7 @@ def CalcDeltaT (PhaseNum):
     T_curr = TempValBuffer[0] #--- T_curr = Pt100_Mean_C(2,0.5)
     DeltaT = T_curr-T_soll
     print('T='+str(T_curr) +'GrC\t' +'Delta= ' + str(DeltaT) + 'GrC')
-    
-    #CycCounter = CycCounter+1
-    #plt.scatter(CycCounter,T_curr)
-    #plt.show()
-    #plt.pause(0.00001)
-    
+
     return DeltaT
 
 def HeatToTemp(PhaseNum):
@@ -164,7 +154,7 @@ def ExecPhase(PhaseNum):
     Rast(PhaseNum)
   
 def Background():
-    Pt100_Filter_C(4,0.25,'mean')
+    Pt100_Filter_C()
 
 def Main():
     
