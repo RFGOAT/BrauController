@@ -96,9 +96,6 @@ def calcPT100Temp(RTD_ADC_Code):
 
 
 
-' These are MAINFUNCTIONS for use inside this file only'
-
-
 def readTemp():
 	# b10000000 = 0x80
 	# 0x8x to specify 'write register value'
@@ -161,23 +158,28 @@ def readTemp():
 	return temp_C
 		
 
-		
-def Pt100_Filter_C(gain,offset):
+
+
+' These are MAINFUNCTIONS for use inside this file only'
+
+
+def Pt100_Filter_C(gain,offset,TempValBuffer):
     
-    global TempValBuffer
     
     FilterBuffer = np.zeros(50, dtype=float)
     
-    while True:
-        for i in range (48):
-            T = readTemp()
-            FilterBuffer = shift(FilterBuffer,1,cval= T)
-            tm.sleep(0.02)
-        
-        FilterBuffer = np.sort(FilterBuffer, axis=0)
-        IQR_Mean = np.mean(FilterBuffer[12:36])
-        IQR_MeanCal = np.round(gain * IQR_Mean + offset,2) ##calibrated
-        TempValBuffer = shift(TempValBuffer,1,cval=IQR_MeanCal)
+    for i in range (48):
+        T = readTemp()
+        FilterBuffer = shift(FilterBuffer,1,cval= T)
+        tm.sleep(0.02)
+    
+    FilterBuffer = np.sort(FilterBuffer, axis=0)
+    IQR_Mean = np.mean(FilterBuffer[12:36])
+    IQR_MeanCal = np.round(gain * IQR_Mean + offset,2) ##calibrated
+    TempValBuffer = shift(TempValBuffer,1,cval=IQR_MeanCal)
+    #print(TempValBuffer)
+
+    return TempValBuffer 
         
 
  

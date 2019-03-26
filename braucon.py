@@ -1,25 +1,20 @@
 import pt100_functions as Pt100
 import socket_functions as Sock
+
 import RPi.GPIO as GPIO
 import time as tm
 import numpy as np
 import threading as trd
-
-#import matplotlib.pyplot as plt
 import os
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
 # LED Setup
 LED  = 2
 GPIO.setup(LED,GPIO.OUT)
 GPIO.output(LED,GPIO.LOW)
 
 # Variables
-TempValBuffer = np.arange(10,dtype=float)
-#CycCounter = 0
-rootdir = os.path.dirname(os.path.realpath(__file__))+'/'#'/home/pi/braucon/'
-
+TempValBuffer = np.zeros(10,dtype=float)
+rootdir = os.path.dirname(os.path.realpath(__file__))+'/'
 
         
 def ReadPhasesCal():
@@ -32,11 +27,13 @@ def ReadPhasesCal():
     return phases,gain,offset
     
 def CalcDeltaT (PhaseNum):
-    
-    global CycCounter
-    
+        
     T_soll = float(phases[PhaseNum][1])
-    T_curr = TempValBuffer[0] #--- T_curr = Pt100_Mean_C(2,0.5)
+    
+    'Delta T of last 3 values for safe rast transistions'
+    T_curr = np.mean(TempValBuffer[0:3])
+    #T_curr = TempValBuffer[0]
+    
     DeltaT = T_curr-T_soll
     print('T='+str(T_curr) +'GrC\t' +'Delta= ' + str(DeltaT) + 'GrC')
 
@@ -101,7 +98,11 @@ def ExecPhase(PhaseNum):
     Rast(PhaseNum)
   
 def Background():
-    Pt100.Pt100_Filter_C(gain,offset)
+    global TempValBuffer
+    
+    while True:
+        TempValBuffer = Pt100.Pt100_Filter_C(gain,offset,TempValBuffer)
+        #print(TempValBuffer[0]) #last updated value
 
 def Main():
     
@@ -114,7 +115,8 @@ def Main():
 
 
 'START'
-
+#Initialize Pt100 measurement
+Pt100.setupGPIO()
 ##Read Calibration and phases
 #global phases,gain,offset
 phases,gain,offset = ReadPhasesCal()
@@ -126,7 +128,7 @@ TempThread = trd.Thread(target=Background) #new values with 2Hz
 MainThread = trd.Thread(target=Main) 
 ##TempThread.daemon = True
 TempThread.start()
-tm.sleep(2) #TempValBuffer has to be filled
+tm.sleep(10) #TempValBuffer has to be filled
 MainThread.start()
 
 

@@ -1,41 +1,32 @@
-import ClassesBraucon
+import pt100_functions as Pt100
+
 import RPi.GPIO as GPIO
 import time as tm
 import numpy as np
 import threading as trd
+import os
 from scipy.ndimage.interpolation import shift
 
-rootdir = '/home/pi/braucon/'
-# SPI Setup
-csPin   = 8
-misoPin = 9
-mosiPin = 10
-clkPin  = 11
-# Max31865 Initialization
-max31865 = ClassesBraucon.max31865(csPin,misoPin,mosiPin,clkPin)
+rootdir = os.path.dirname(os.path.realpath(__file__))+'/'
 
-    
-def Pt100_Mean_C(n,delay,delay2):
-    
-    
-    MeanBuffer = np.arange(n, dtype=float)
-    
-    while True:
-        for i in range (n):
-            T = max31865.readTemp()
-            MeanBuffer = shift(MeanBuffer,1,cval= T)
-            tm.sleep(delay)
-        mean = np.round(np.mean(MeanBuffer),2)
-        print(str(mean) + ' GrC')
-        mean_cal = gain * mean + offset
-        print(str(mean_cal) + ' GrC - Calibrated')
-        tm.sleep(delay2)
+
+# Variables
+TempValBuffer = np.zeros(10,dtype=float)
+
 
 def Background():
-    Pt100_Mean_C(5,1,2)
+    global TempValBuffer
+    
+    while True:
+        TempValBuffer = Pt100.Pt100_Filter_C(gain,offset,TempValBuffer)
+        print(TempValBuffer[0]) #last updated value
 
-#Start Thread
+'START'
+#Initialize Pt100 measurement
+Pt100.setupGPIO()
 gain,offset = np.loadtxt(rootdir + 'Calibration.data', dtype=float)
 
+#Start Thread
 TempThread = trd.Thread(target=Background)
 TempThread.start()
+

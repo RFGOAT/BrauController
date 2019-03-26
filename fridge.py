@@ -1,78 +1,37 @@
-import ClassesBraucon
+import pt100_functions as Pt100
+import socket_functions as Sock
+
 import RPi.GPIO as GPIO
 import time as tm
 import numpy as np
 import threading as trd
-from scipy.ndimage.interpolation import shift
+import os
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-#RC-Pins & LED Setup
-ON_CH  = 21
-OFF_CH = 26
-##LED    = 16
-GPIO.setup(ON_CH,GPIO.OUT)
-GPIO.setup(OFF_CH,GPIO.OUT)
-##GPIO.setup(LED,GPIO.OUT)
-GPIO.output(ON_CH,GPIO.LOW)
-GPIO.output(OFF_CH,GPIO.LOW)
-##GPIO.output(LED,GPIO.LOW)
-# SPI Setup
-csPin   = 8
-misoPin = 9
-mosiPin = 10
-clkPin  = 11 
-# Max31865 Initialization
-max = ClassesBraucon.max31865(csPin,misoPin,mosiPin,clkPin)
+# LED Setup
+LED  = 2
+GPIO.setup(LED,GPIO.OUT)
+GPIO.output(LED,GPIO.LOW)
+
 # Variables
-CurrSocketState = False # False--> Socket OFF
-TempValBuffer = np.arange(10,dtype=float)
-rootdir = '/home/pi/braucon/'
-
-# Functions
-def Socket (NewSocketState):
-    
-    global CurrSocketState
-    
-    if (CurrSocketState == False and NewSocketState == True):
-        GPIO.output(ON_CH,GPIO.HIGH)
-        tm.sleep(0.3)
-        GPIO.output(ON_CH,GPIO.LOW)
-        CurrSocketState = True
-    elif (CurrSocketState == True and NewSocketState == False):
-        GPIO.output(OFF_CH,GPIO.HIGH)
-        tm.sleep(0.3)
-        GPIO.output(OFF_CH,GPIO.LOW)
-        CurrSocketState = False
-        
-    return CurrSocketState
-
-    
-def Pt100_Mean_C(n,delay,delay2):
-    
-    global TempValBuffer
-    
-    MeanBuffer = np.arange(n, dtype=float)
-    
-    while True:
-        for i in range (n):
-            T = max.readTemp()
-            MeanBuffer = shift(MeanBuffer,1,cval= T)
-            tm.sleep(delay)
-        mean = np.round(np.mean(MeanBuffer),2)
-        print(str(mean) + 'GrC')
-        TempValBuffer = shift(TempValBuffer,1,cval=mean)
-        ######print(str(TempValBuffer) + 'TempvalBuffer')
-        tm.sleep(delay2) # New value every X seconds
+TempValBuffer = np.zeros(10,dtype=float)
+rootdir = os.path.dirname(os.path.realpath(__file__))+'/'
 
 
+def ReadPhasesCal():
+    data = np.loadtxt(rootdir + 'MaischPhasen.dat', delimiter='\t',dtype='str')
+    data = [x[2:-1] for x in data]
+    phases = np.array([x.split(',') for x in data])
+    gain,offset = np.loadtxt(rootdir + 'Calibration.data', dtype=float)        
+    del data
+   
+    return phases,gain,offset
 
-    
+
 def Fridge(Low,High):
     
     while True:
             
-        meanT = TempValBuffer[0]
+        meanT = np.mean(TempValBuffer[0:3])
         print('meanT' + str(meanT)) 
             
         if ( meanT < Low):
@@ -86,9 +45,14 @@ def Fridge(Low,High):
             #Socket(False)
             print('else')
         tm.sleep(1800)
-            
+   
+   
 def Background():
-    Pt100_Mean_C(5,2,290) #alle 5 minuten
+    global TempValBuffer
+    
+    while True:
+        TempValBuffer = Pt100.Pt100_Filter_C(gain,offset,TempValBuffer)
+        #print(TempValBuffer[0]) #last updated value
 
 def Main():
     print('Start - Power ON')
@@ -96,15 +60,23 @@ def Main():
     Fridge(12,15)
 
 
+
+'START'
+#Initialize Pt100 measurement
+Pt100.setupGPIO()
+##Read Calibration and phases
+#global phases,gain,offset
+phases,gain,offset = ReadPhasesCal()
+print(phases)
+print('Gain: ' + str(gain) + ' Offset: ' + str(offset))
+
 ## Initialize Temperature measurement
 TempThread = trd.Thread(target=Background) #new values with 2Hz
 MainThread = trd.Thread(target=Main) 
 ##TempThread.daemon = True
 TempThread.start()
-tm.sleep(660) #TempValBuffer has to be filled
+tm.sleep(10) #TempValBuffer has to be filled
 MainThread.start()
-
-
 
 
 

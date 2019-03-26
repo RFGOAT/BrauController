@@ -4,6 +4,9 @@ import time as tm
 ON_CH  = 21
 OFF_CH = 26
 
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+
 GPIO.setup(ON_CH,GPIO.OUT)
 GPIO.setup(OFF_CH,GPIO.OUT)
 
@@ -15,7 +18,7 @@ GPIO.output(OFF_CH,GPIO.LOW)
 CurrSocketState = False # False--> Socket OFF
 
 # Functions
-def Socket (NewSocketState):#, CurrSocketState):
+def Socket (NewSocketState):
     
     global CurrSocketState
     
@@ -30,7 +33,7 @@ def Socket (NewSocketState):#, CurrSocketState):
         GPIO.output(OFF_CH,GPIO.LOW)
         CurrSocketState = False
         
-    return CurrSocketState
+   #return CurrSocketState
 
 def ApplyDuty(ratio,T):
     Socket(True)

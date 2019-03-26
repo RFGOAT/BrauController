@@ -1,54 +1,29 @@
-import ClassesBraucon
+import pt100_functions as Pt100
+
 import RPi.GPIO as GPIO
 import time as tm
 import numpy as np
+import os
 from scipy.ndimage.interpolation import shift
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-
-# SPI Setup
-csPin   = 8
-misoPin = 9
-mosiPin = 10
-clkPin  = 11
-# Max31865 Initialization
-max31865 = ClassesBraucon.max31865(csPin,misoPin,mosiPin,clkPin)
 # Variables
-
-rootdir = '/home/pi/braucon/'
-
-   
-    
-def Pt100_Filter_Celsius(n,delay,f_type):
-    
-    TempBuffer = np.arange(n, dtype=float)
-    for i in range (n):
-        T = max31865.readTemp()
-        TempBuffer = shift(TempBuffer,1,cval= T)
-        tm.sleep(delay)
-        
-        if(f_type == 'mean'):
-            val = np.round(np.mean(TempBuffer),2)
-        elif(f_type == 'median'):
-            val = np.round(np.median(TempBuffer),2)
-        else:
-            print('no filter_type defined')
-
-    return val
+rootdir = os.path.dirname(os.path.realpath(__file__))+'/'
 
 
 def Calibration():
+    TempValBuffer = np.zeros(10,dtype=float)
     
     print('Place sensor in Cold-water')
     print('Start Calibration with Enter')
     Tp_1 = float(input('Enter Temperature'))
-    Te_1 = Pt100_Filter_Celsius(20,0.1,'median')
+    TempValBuffer = Pt100.Pt100_Filter_C(gain,offset,TempValBuffer)
+    Te_1 = TempValBuffer[0]
     
     print('Place sensor in Hot-water')
-    #print('Start Calibration with Enter')
     Tp_2 = float(input('Enter Temperature'))
-    Te_2 = Pt100_Filter_Celsius(20,0.1,'median')
+    TempValBuffer = Pt100.Pt100_Filter_C(gain,offset,TempValBuffer)
+    Te_2 = TempValBuffer[0]
+
     
     CalVal = np.arange(2,dtype=float)
     CalVal[0] = (Tp_2-Tp_1)/(Te_2-Te_1) # Gain
@@ -59,6 +34,11 @@ def Calibration():
     
     return CalVal
 
+
+'START'
+#Initialize Pt100 measurement
+Pt100.setupGPIO()
+gain,offset = np.loadtxt(rootdir + 'Calibration.data', dtype=float)
 
 np.savetxt(rootdir + 'Calibration.data', Calibration())
 
